@@ -14,12 +14,12 @@ import csv
 
 VERBOSE = False
 EDITOR = "vim"
-PHONEBOOK_PATH = "PATH_TO_PHONEBOOK"
+PHONEBOOK_PATH = "/home/evidex/.numbers"
 # Read number of rows and columns in terminal
 ROWS, COLUMNS = os.popen('stty size', 'r').read().split()
 
-LOGIN_USER = "USER_PHONE_NUM"
-LOGIN_PASS = "USER_PIN"
+LOGIN_USER = "0860674284"
+LOGIN_PASS = "256504"
 
 URL_BASE = "https://webtexts.three.ie/webtext"
 LOGIN_STUB = "/users/login"
@@ -150,7 +150,7 @@ def sendText(session, tokens, message, recipients=[], schedule=False):
 ########
 # Main #
 ########
-if __name__ == "__main__":
+def main():
     # Setup Argparse
     parser = argparse.ArgumentParser(description="Send texts using Three IE Webtexts.",
                                      prog="text.py")
@@ -160,10 +160,6 @@ if __name__ == "__main__":
                         help="The message to send")
     # Parse arguments
     args = parser.parse_args()
-    # Create HTTP session
-    session = requests.session()
-    # Login to Webtexts
-    tokens = login(session)
     # Send text
     name = ""
     if args.message:
@@ -175,6 +171,13 @@ if __name__ == "__main__":
         name, number = printMenu(phoneBook)
         recipients = [number]
         message = createMessage()
+    # Create HTTP session
+    session = requests.session()
+    # Login to Webtexts
+    tokens = login(session)
     remaining = sendText(session, tokens, message, recipients=recipients)
     print "Sent text '{}' to {}".format(message[:50].replace("\n", " "), name if name else recipients)
     print "Remaining texts: " + remaining
+
+if __name__ == "__main__":
+    main()
