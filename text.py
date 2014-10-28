@@ -14,12 +14,12 @@ import csv
 
 VERBOSE = False
 EDITOR = "vim"
-PHONEBOOK_PATH = "/home/evidex/.numbers"
+PHONEBOOK_PATH = ".numbers"
 # Read number of rows and columns in terminal
 ROWS, COLUMNS = os.popen('stty size', 'r').read().split()
 
-LOGIN_USER = "0860674284"
-LOGIN_PASS = "256504"
+LOGIN_USER = "USER_NUMBER"
+LOGIN_PASS = "USER_PASS"
 
 URL_BASE = "https://webtexts.three.ie/webtext"
 LOGIN_STUB = "/users/login"
@@ -171,13 +171,17 @@ def main():
         name, number = printMenu(phoneBook)
         recipients = [number]
         message = createMessage()
-    # Create HTTP session
-    session = requests.session()
-    # Login to Webtexts
-    tokens = login(session)
-    remaining = sendText(session, tokens, message, recipients=recipients)
-    print "Sent text '{}' to {}".format(message[:50].replace("\n", " "), name if name else recipients)
-    print "Remaining texts: " + remaining
+    try:
+        # Create HTTP session
+        session = requests.session()
+        # Login to Webtexts
+        tokens = login(session)
+        remaining = sendText(session, tokens, message, recipients=recipients)
+        print "Sent text '{}' to {}".format(message[:50].replace("\n", " "), name if name else recipients)
+        print "Remaining texts: " + remaining
+    except:
+        print "Failed to send text to {}".format(name if name else recipients)
+        print "Ensure you have a network connection"
 
 if __name__ == "__main__":
     main()
