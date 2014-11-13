@@ -42,7 +42,7 @@ def readPhoneBook(PHONEBOOK_PATH):
     with open(PHONEBOOK_PATH) as f:
         reader = csv.reader(f, delimiter=",")
         for row in reader:
-            phoneBook[row[0].lower()] = row[1]
+            phoneBook[row[0].lower().strip()] = row[1].strip()
     return phoneBook
 
 
@@ -142,7 +142,7 @@ def sendText(session, tokens, message, recipients=[], schedule=False):
     #print r.status_code
     # Find remaining number of texts
     soup = BeautifulSoup(r.text)
-    ul = soup.find_all("ul", attrs={"class":"webtext"})[0]
+    ul = soup.find_all("ul", attrs={"class":"webtext"})
     li = list(ul.children)[3]
     remaining = li.p.text
     return remaining
