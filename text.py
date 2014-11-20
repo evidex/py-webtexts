@@ -14,12 +14,12 @@ import csv
 
 VERBOSE = False
 EDITOR = "vim"
-PHONEBOOK_PATH = ".numbers"
+PHONEBOOK_PATH = os.path.expanduser("~/.numbers")
 # Read number of rows and columns in terminal
 ROWS, COLUMNS = os.popen('stty size', 'r').read().split()
 
 LOGIN_USER = "USER_NUMBER"
-LOGIN_PASS = "USER_PASS"
+LOGIN_PASS = "USER_PIN"
 
 URL_BASE = "https://webtexts.three.ie/webtext"
 LOGIN_STUB = "/users/login"
@@ -142,7 +142,7 @@ def sendText(session, tokens, message, recipients=[], schedule=False):
     #print r.status_code
     # Find remaining number of texts
     soup = BeautifulSoup(r.text)
-    ul = soup.find_all("ul", attrs={"class":"webtext"})
+    ul = soup.find_all("ul", attrs={"class":"webtext"})[0]
     li = list(ul.children)[3]
     remaining = li.p.text
     return remaining
@@ -179,9 +179,13 @@ def main():
         remaining = sendText(session, tokens, message, recipients=recipients)
         print "Sent text '{}' to {}".format(message[:50].replace("\n", " "), name if name else recipients)
         print "Remaining texts: " + remaining
-    except:
+    except (requests.exceptions.RequestException) as excep:
         print "Failed to send text to {}".format(name if name else recipients)
         print "Ensure you have a network connection"
+        print "Tech details -> " + excep
+    except:
+        print "Something weird happened, and I failed to send your text. Soz not soz."
+        raise
 
 if __name__ == "__main__":
     main()
