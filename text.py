@@ -14,7 +14,7 @@ import csv
 import ConfigParser
 
 VERBOSE = False
-DEBUG = True
+DEBUG = False
 EDITOR = "vim"
 PHONEBOOK_PATH = os.path.expanduser("~/.numbers")
 CONFIG_PATH = os.path.expanduser("~/.py_webtexts.yaml")
@@ -46,7 +46,6 @@ def readConfig(config_path):
         sys.exit(1)
     return parser
 
-
 def readPhoneBook(PHONEBOOK_PATH):
     """ Reads a CSV phone book file of names and phone numbers
 
@@ -62,7 +61,6 @@ def readPhoneBook(PHONEBOOK_PATH):
         for row in reader:
             phoneBook[row[0].lower().strip()] = row[1].strip()
     return phoneBook
-
 
 def printMenu(phoneBook):
     """ Prints a menu to allow user to select a number from phoneBook.
@@ -166,11 +164,10 @@ def sendText(session, config, tokens, message, recipients=[], schedule=False):
     r = session.post(URL_BASE+SEND_STUB, data=data)
     #print r.status_code
     # Find remaining number of texts
-    # soup = BeautifulSoup(r.text)
-    # ul = soup.find_all("ul", attrs={"class":"webtext"})[0]
-    # li = list(ul.children)[3]
-    # remaining = li.p.text
-    remaining = "0"
+    soup = BeautifulSoup(r.text)
+    ul = soup.find_all("ul", attrs={"class":"webtext"})[0]
+    li = list(ul.children)[3]
+    remaining = li.p.text
     return remaining
 
 ########
@@ -211,7 +208,7 @@ def main():
     except (requests.exceptions.RequestException, requests.exceptions.ConnectionError) as excep:
         print "Failed to send text to {}".format(name if name else recipients)
         print "Ensure you have a network connection"
-        print "Tech details -> " + sys.exec_info()[0]
+        print "Tech details -> " + sys.exc_info()[0]
         sys.exit(1)
     except:
         print "Failed to send text. I blame you."
