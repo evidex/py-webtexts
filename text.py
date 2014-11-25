@@ -15,11 +15,10 @@ import csv
 VERBOSE = False
 EDITOR = "vim"
 PHONEBOOK_PATH = os.path.expanduser("~/.numbers")
+CONFIG_PATH = os.path.expanduser("~/.py_webtexts.yaml")
 # Read number of rows and columns in terminal
 ROWS, COLUMNS = os.popen('stty size', 'r').read().split()
 
-LOGIN_USER = "USER_NUMBER"
-LOGIN_PASS = "USER_PIN"
 
 URL_BASE = "https://webtexts.three.ie/webtext"
 LOGIN_STUB = "/users/login"
@@ -29,6 +28,15 @@ SEND_STUB = "/messages/send"
 #############
 # Functions #
 #############
+def readConfig(config_path):
+    if ( os.path.exists( config_path ) ):
+        parser = ConfigParser.ConfigParser()
+        parser.read( config_path )
+    else:
+        print("ERROR - Config file ~/.py_webtexts.yaml does not exist!")
+    return parser
+
+
 def readPhoneBook(PHONEBOOK_PATH):
     """ Reads a CSV phone book file of names and phone numbers
 
@@ -84,7 +92,7 @@ def createMessage():
     with open(tmpFile.name) as f:
         return f.read()
 
-def login(session):
+def login(session, config):
     # Get the login token
     r = session.get(URL_BASE+LOGIN_STUB)
     #print r.status_code
@@ -93,8 +101,8 @@ def login(session):
     tokens["data[_Token][key]"] = soup.find_all("input", attrs={"name": "data[_Token][key]"})[0].attrs["value"]
     # Send login request
     data = {"_method": "POST",
-            "data[User][telephoneNo]": LOGIN_USER,
-            "data[User][pin]": LOGIN_PASS
+            "data[User][telephoneNo]": config.get("login", "user_number"),
+            "data[User][pin]": config.get("login", "user_pin")
             }
     data.update(tokens)
     #print "Logging in"
@@ -141,10 +149,11 @@ def sendText(session, tokens, message, recipients=[], schedule=False):
     r = session.post(URL_BASE+SEND_STUB, data=data)
     #print r.status_code
     # Find remaining number of texts
-    soup = BeautifulSoup(r.text)
-    ul = soup.find_all("ul", attrs={"class":"webtext"})[0]
-    li = list(ul.children)[3]
-    remaining = li.p.text
+    # soup = BeautifulSoup(r.text)
+    # ul = soup.find_all("ul", attrs={"class":"webtext"})[0]
+    # li = list(ul.children)[3]
+    # remaining = li.p.text
+    remaining = "0"
     return remaining
 
 ########
@@ -172,11 +181,13 @@ def main():
         recipients = [number]
         message = createMessage()
     try:
+        # Read config for login details
+        config = readConfig()
         # Create HTTP session
         session = requests.session()
         # Login to Webtexts
-        tokens = login(session)
-        remaining = sendText(session, tokens, message, recipients=recipients)
+        tokens = login(session, config)
+        remaining = sendText(session, config, tokens, message, recipients=recipients)
         print "Sent text '{}' to {}".format(message[:50].replace("\n", " "), name if name else recipients)
         print "Remaining texts: " + remaining
     except (requests.exceptions.RequestException) as excep:
