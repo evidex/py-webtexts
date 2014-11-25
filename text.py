@@ -11,6 +11,7 @@ import tempfile
 import subprocess
 import os
 import csv
+import ConfigParser
 
 VERBOSE = False
 EDITOR = "vim"
