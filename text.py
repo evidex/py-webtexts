@@ -182,7 +182,7 @@ def main():
         message = createMessage()
     try:
         # Read config for login details
-        config = readConfig()
+        config = readConfig(CONFIG_PATH)
         # Create HTTP session
         session = requests.session()
         # Login to Webtexts
