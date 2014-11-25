@@ -14,6 +14,7 @@ import csv
 import ConfigParser
 
 VERBOSE = False
+DEBUG = True
 EDITOR = "vim"
 PHONEBOOK_PATH = os.path.expanduser("~/.numbers")
 CONFIG_PATH = os.path.expanduser("~/.py_webtexts.yaml")
@@ -30,11 +31,19 @@ SEND_STUB = "/messages/send"
 # Functions #
 #############
 def readConfig(config_path):
+    parser = ConfigParser.ConfigParser()
     if ( os.path.exists( config_path ) ):
-        parser = ConfigParser.ConfigParser()
         parser.read( config_path )
     else:
-        print("ERROR - Config file ~/.py_webtexts.yaml does not exist!")
+        print "ERROR - Config file {} does not exist!".format(config_path)
+    # Config File error checking
+    try:
+        assert parser.has_section("login")
+        assert parser.has_option("login", "user_number")
+        assert parser.has_option("login", "user_pin")
+    except:
+        print "ERROR - Config file {} is incorrectly formatted!!".format(config_path)
+        sys.exit(1)
     return parser
 
 
@@ -108,6 +117,13 @@ def login(session, config):
     data.update(tokens)
     #print "Logging in"
     r = session.post(URL_BASE+LOGIN_STUB, data=data)
+    # Ensure we logged in correctly
+    if "success" not in r.text.lower():
+        print "Failed to login"
+        print "\tUser Number: {}".format(config.get("login", "user_number"))
+        print "\tUser PIN: {}".format(config.get("login", "user_pin"))
+        print "Check config file!"
+        raise Exception()
     #print r.status_code
     #print "Finding token fields"
     soup = BeautifulSoup(r.text)
@@ -115,7 +131,7 @@ def login(session, config):
     tokens["data[_Token][unlocked]"] = soup.find_all("input", attrs={"name": "data[_Token][unlocked]"})[0].attrs["value"]
     return tokens
 
-def sendText(session, tokens, message, recipients=[], schedule=False):
+def sendText(session, config, tokens, message, recipients=[], schedule=False):
     """
     Send request to Three.ie webtext server.
 
@@ -172,6 +188,8 @@ def main():
     args = parser.parse_args()
     # Send text
     name = ""
+    # Read config for login details
+    config = readConfig(CONFIG_PATH)
     if args.message:
         recipients = args.recipients
         message = args.message
@@ -181,23 +199,23 @@ def main():
         name, number = printMenu(phoneBook)
         recipients = [number]
         message = createMessage()
+    print "Sending text"
     try:
-        # Read config for login details
-        config = readConfig(CONFIG_PATH)
         # Create HTTP session
         session = requests.session()
         # Login to Webtexts
         tokens = login(session, config)
-        remaining = sendText(session, config, tokens, message, recipients=recipients)
+        remaining = sendText(session, config, tokens, message, recipients=recipients) if not DEBUG else "debug mode enabled"
         print "Sent text '{}' to {}".format(message[:50].replace("\n", " "), name if name else recipients)
         print "Remaining texts: " + remaining
-    except (requests.exceptions.RequestException) as excep:
+    except (requests.exceptions.RequestException, requests.exceptions.ConnectionError) as excep:
         print "Failed to send text to {}".format(name if name else recipients)
         print "Ensure you have a network connection"
-        print "Tech details -> " + excep
+        print "Tech details -> " + sys.exec_info()[0]
+        sys.exit(1)
     except:
-        print "Something weird happened, and I failed to send your text. Soz not soz."
-        raise
+        print "Failed to send text. I blame you."
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
