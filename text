@@ -118,9 +118,10 @@ def readPhoneBook(phonebook_path):
     """
     phoneBook = {}
     if not ( os.path.exists( phonebook_path ) ):
-        print "ERROR - Couldn't read phonebook [{}] and running interactively.".format(phonebook_path)
-        print "Please write your CSV phonebook at [{}]".format(phonebook_path)
-        sys.exit(1)
+        # Create default empty phonebook
+        if DEBUG: print "Creating empty phone book - [{}]".format(phonebook_path)
+        with open(phonebook_path, "w") as f:
+            f.write("")
     with open(phonebook_path) as f:
         reader = csv.reader(f, delimiter=",")
         for row in reader:
@@ -139,8 +140,8 @@ def printMenu(phoneBook):
     print "Select text message recipient"
     print("-"*COLUMNS)
     if len(phoneBook) == 0:
-        print "No numbers in addressbook. Please populate [{}]".format(PHONEBOOK_PATH)
-        print "Format:\nname1,<phone_num>\nname2,<phone_num>"
+        print "NOTE: No numbers in addressbook. Please populate [{}]".format(PHONEBOOK_PATH)
+        print "Format:\n\tname1,<phone_num>\n\tname2,<phone_num>"
     for name, number in phoneBook.iteritems():
        print "{}\t-\t{}".format(name, number)
     print("-"*COLUMNS)
