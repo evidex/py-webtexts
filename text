@@ -92,7 +92,8 @@ def readConfig(config_path):
         if res in ["y", "yes"]:
             createConfig(config_path)
             # Now we can go back around and read the config
-            readConfig(config_path)
+            print "Great, we're done. Run me again like a good chap?"
+            sys.exit(0)
         else:
             print "Don't want to write a config file? Suit yourself."
             sys.exit(1)
@@ -106,7 +107,7 @@ def readConfig(config_path):
         sys.exit(1)
     return parser
 
-def readPhoneBook(PHONEBOOK_PATH):
+def readPhoneBook(phonebook_path):
     """ Reads a CSV phone book file of names and phone numbers
 
     Params:
@@ -116,7 +117,11 @@ def readPhoneBook(PHONEBOOK_PATH):
         Dictionary of phone numbers, indexed by names
     """
     phoneBook = {}
-    with open(PHONEBOOK_PATH) as f:
+    if not ( os.path.exists( phonebook_path ) ):
+        print "ERROR - Couldn't read phonebook [{}] and running interactively.".format(phonebook_path)
+        print "Please write your CSV phonebook at [{}]".format(phonebook_path)
+        sys.exit(1)
+    with open(phonebook_path) as f:
         reader = csv.reader(f, delimiter=",")
         for row in reader:
             phoneBook[row[0].lower().strip()] = row[1].strip()
@@ -247,6 +252,7 @@ def main():
     # Parse arguments
     args = parser.parse_args()
     if args.debug:
+        global DEBUG
         DEBUG = True
     # Send text
     name = ""
