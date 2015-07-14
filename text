@@ -138,6 +138,9 @@ def printMenu(phoneBook):
     """
     print "Select text message recipient"
     print("-"*COLUMNS)
+    if len(phoneBook) == 0:
+        print "No numbers in addressbook. Please populate [{}]".format(PHONEBOOK_PATH)
+        print "Format:\nname1,<phone_num>\nname2,<phone_num>"
     for name, number in phoneBook.iteritems():
        print "{}\t-\t{}".format(name, number)
     print("-"*COLUMNS)
