@@ -10,19 +10,23 @@ import sys
 import tempfile
 import subprocess
 import os
+import re
 import csv
 import ConfigParser
 
 VERBOSE = False
 DEBUG = False
 EDITOR = "vim"
-PHONEBOOK_PATH = os.path.expanduser("~/.numbers")
+PHONEBOOK_PATH = os.path.expanduser("~/.py_webtexts.numbers")
 CONFIG_PATH = os.path.expanduser("~/.py_webtexts.yaml")
 # Read number of rows and columns in terminal
 ROWS, COLUMNS = os.popen('stty size', 'r').read().split()
+ROWS, COLUMNS = int(ROWS), int(COLUMNS)
 
 
+PROMPT = "=> "
 URL_BASE = "https://webtexts.three.ie/webtext"
+# API/REQUEST STUBS
 LOGIN_STUB = "/users/login"
 LOGOUT_STUB = "/users/logout"
 SEND_STUB = "/messages/send"
@@ -30,12 +34,68 @@ SEND_STUB = "/messages/send"
 #############
 # Functions #
 #############
+def validatePhoneNumber(phone_num):
+    """ Validates an Irish phone number using regex
+
+    """
+    res = re.match(r"\+3538[3,5-7,9]{1}[0-9]{7}|08[3,5-7,9][0-9]{7}", phone_num)
+    if not res:
+        print "ERROR - Failed to validate phone number -> {}".format(phone_num)
+        sys.exit(1)
+    return res.group(0)
+
+def createConfig(config_path):
+    # Gather user information
+    done = False
+    while not done:
+        print """Beginning to create config file for py-webtexts. Be aware, this
+will store your Three.ie webtext login information in the plain text file
+located at {}.
+
+WARNING: DONT DO THIS ON A COMPUTER THAT'S NOT SECURE. ANYONE WITH ACCESS TO
+         THAT FILE, CAN EASILY READ YOUR LOGIN INFORMATION!!!
+
+I probably could have encrypted it, or stored it in the keyring. Meh.
+
+
+Please enter your phone number used to login to Three Webtexts:""".format(config_path)
+        phone_num = validatePhoneNumber(raw_input(PROMPT))
+
+
+        print "PIN"
+        pin = raw_input(PROMPT)
+
+        print "Phone Number -> {} \nPIN          -> {}\n[y/n]".format(phone_num, pin)
+        ans = raw_input(PROMPT).lower()
+
+        if ans in ["y", "yes"]:
+            done = True
+        else:
+            print "Please re-enter your information"
+            print "-"*COLUMNS
+    # Form configuration
+    parser = ConfigParser.ConfigParser()
+    parser.add_section("login")
+    parser.set("login", "user_number", phone_num)
+    parser.set("login", "user_pin", pin)
+    # Write config data
+    with open(config_path, "w") as f:
+        parser.write(f)
+
 def readConfig(config_path):
     parser = ConfigParser.ConfigParser()
     if ( os.path.exists( config_path ) ):
         parser.read( config_path )
     else:
-        print "ERROR - Config file {} does not exist!".format(config_path)
+        print "Config file not found, do you want to create it now? [y/n] [{}]".format(config_path)
+        res = raw_input(PROMPT).lower()
+        if res in ["y", "yes"]:
+            createConfig(config_path)
+            # Now we can go back around and read the config
+            readConfig(config_path)
+        else:
+            print "Don't want to write a config file? Suit yourself."
+            sys.exit(1)
     # Config File error checking
     try:
         assert parser.has_section("login")
@@ -72,10 +132,10 @@ def printMenu(phoneBook):
         Tuple of (name, phone number)
     """
     print "Select text message recipient"
-    print("-"*int(COLUMNS))
+    print("-"*COLUMNS)
     for name, number in phoneBook.iteritems():
        print "{}\t-\t{}".format(name, number)
-    print("-"*int(COLUMNS))
+    print("-"*COLUMNS)
     while True:
         try:
             sel = raw_input("Name -> ").lower()
@@ -103,30 +163,30 @@ def createMessage():
 def login(session, config):
     # Get the login token
     r = session.get(URL_BASE+LOGIN_STUB)
-    #print r.status_code
-    soup = BeautifulSoup(r.text)
+    if DEBUG: print "LOGIN TOKEN RESPONSE CODE - {}".format(r.status_code)
+    soup = BeautifulSoup(r.content)
     tokens = {}
     tokens["data[_Token][key]"] = soup.find_all("input", attrs={"name": "data[_Token][key]"})[0].attrs["value"]
+    tokens["data[_Token][fields]"] = soup.find_all("input", attrs={"name": "data[_Token][fields]"})[0].attrs["value"]
+    tokens["data[_Token][unlocked]"] = soup.find_all("input", attrs={"name": "data[_Token][unlocked]"})[0].attrs["value"]
     # Send login request
     data = {"_method": "POST",
             "data[User][telephoneNo]": config.get("login", "user_number"),
             "data[User][pin]": config.get("login", "user_pin")
             }
     data.update(tokens)
-    #print "Logging in"
+    if DEBUG: print "Logging in"
     r = session.post(URL_BASE+LOGIN_STUB, data=data)
+    if DEBUG: print "LOGIN REQUEST RESPONSE CODE - {}".format(r.status_code)
+    r = session.post(URL_BASE+SEND_STUB, data=data)
+    if DEBUG: print "LOGIN REQUEST RESPONSE CODE - {}".format(r.status_code)
     # Ensure we logged in correctly
-    if "success" not in r.text.lower():
+    if "logged in as" not in r.content.lower():
         print "Failed to login"
         print "\tUser Number: {}".format(config.get("login", "user_number"))
         print "\tUser PIN: {}".format(config.get("login", "user_pin"))
         print "Check config file!"
         raise Exception()
-    #print r.status_code
-    #print "Finding token fields"
-    soup = BeautifulSoup(r.text)
-    tokens["data[_Token][fields]"] = soup.find_all("input", attrs={"name": "data[_Token][fields]"})[0].attrs["value"]
-    tokens["data[_Token][unlocked]"] = soup.find_all("input", attrs={"name": "data[_Token][unlocked]"})[0].attrs["value"]
     return tokens
 
 def sendText(session, config, tokens, message, recipients=[], schedule=False):
@@ -162,9 +222,10 @@ def sendText(session, config, tokens, message, recipients=[], schedule=False):
     data.update(tokens)
     # Send the requests
     r = session.post(URL_BASE+SEND_STUB, data=data)
-    #print r.status_code
+    if DEBUG: print r.status_code
     # Find remaining number of texts
-    soup = BeautifulSoup(r.text)
+    remaining = None
+    soup = BeautifulSoup(r.content)
     ul = soup.find_all("ul", attrs={"class":"webtext"})[0]
     li = list(ul.children)[3]
     remaining = li.p.text
@@ -178,11 +239,15 @@ def main():
     parser = argparse.ArgumentParser(description="Send texts using Three IE Webtexts.",
                                      prog="text.py")
     parser.add_argument("--recipients", "-r", nargs="+",
-                        help="Phone numbers to send the message to. Eg: 0860674284")
+                        help="Phone number(s) to send the message to. Eg +353861234567 0851234567")
     parser.add_argument("--message", "-m",
                         help="The message to send")
+    parser.add_argument("--debug", "-d", action="store_true",
+                        help="Enable debug mode")
     # Parse arguments
     args = parser.parse_args()
+    if args.debug:
+        DEBUG = True
     # Send text
     name = ""
     # Read config for login details
@@ -202,7 +267,7 @@ def main():
         session = requests.session()
         # Login to Webtexts
         tokens = login(session, config)
-        remaining = sendText(session, config, tokens, message, recipients=recipients) if not DEBUG else "debug mode enabled"
+        remaining = sendText(session, config, tokens, message, recipients=recipients) if not DEBUG else "debug mode enabled, text not sent"
         print "Sent text '{}' to {}".format(message[:50].replace("\n", " "), name if name else recipients)
         print "Remaining texts: " + remaining
     except (requests.exceptions.RequestException, requests.exceptions.ConnectionError) as excep:
@@ -212,6 +277,7 @@ def main():
         sys.exit(1)
     except:
         print "Failed to send text. I blame you."
+        if DEBUG: print sys.exc_info()
         sys.exit(1)
 
 if __name__ == "__main__":
